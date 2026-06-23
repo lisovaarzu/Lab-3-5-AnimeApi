@@ -1,14 +1,15 @@
 package com.example.lab_3.ui
 
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.example.lab_3.ui.screens.AnimeListScreen
-import com.example.lab_3.ui.states.AnimeListUiState
 import com.example.lab_3.domain.models.Anime
+import com.example.lab_3.ui.screens.AnimeListScreen
+import com.example.lab_3.ui.states.AnimeListStatus
+import com.example.lab_3.ui.states.AnimeListUiState
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,8 +23,9 @@ class AnimeListScreenTest {
     @Test
     fun errorState_clickRetry_transitionsToSuccess() {
         val errorState = AnimeListUiState(
-            errorMessage = "Network error"
+            status = AnimeListStatus.Error("Network error")
         )
+
         val successState = AnimeListUiState(
             animeList = listOf(
                 Anime(1, "Test Anime", "url", 12, 8.5, 2024, false)
@@ -31,9 +33,7 @@ class AnimeListScreenTest {
             favouriteList = listOf(
                 Anime(1, "Test Anime", "url", 12, 8.5, 2024, false)
             ),
-            isLoading = false,
-            errorMessage = null,
-            hasSearched = false
+            status = AnimeListStatus.Success
         )
 
         val currentState = mutableStateOf(errorState)
@@ -50,24 +50,36 @@ class AnimeListScreenTest {
             )
         }
 
-        composeTestRule.onNodeWithText("Error: Network error").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Retry").assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText("Error: Network error")
+            .assertIsDisplayed()
 
-        composeTestRule.onNodeWithText("Retry").performClick()
+        composeTestRule
+            .onNodeWithText("Retry")
+            .assertIsDisplayed()
+
+        composeTestRule
+            .onNodeWithText("Retry")
+            .performClick()
+
         composeTestRule.waitForIdle()
 
-        composeTestRule.onNodeWithText("Test Anime").assertIsDisplayed()
-        composeTestRule.onNodeWithText("Error: Network error").assertDoesNotExist()
+        composeTestRule
+            .onNodeWithText("Test Anime")
+            .assertIsDisplayed()
+
+        composeTestRule
+            .onNodeWithText("Error: Network error")
+            .assertDoesNotExist()
     }
 
     @Test
     fun emptySearchResult_displaysEmptyMessage() {
         val emptyState = AnimeListUiState(
+            searchQuery = "xyz",
             animeList = emptyList(),
             favouriteList = emptyList(),
-            isLoading = false,
-            errorMessage = null,
-            hasSearched = true
+            status = AnimeListStatus.Empty
         )
 
         composeTestRule.setContent {
@@ -80,6 +92,8 @@ class AnimeListScreenTest {
             )
         }
 
-        composeTestRule.onNodeWithText("No results found").assertIsDisplayed()
+        composeTestRule
+            .onNodeWithText("No results found")
+            .assertIsDisplayed()
     }
 }

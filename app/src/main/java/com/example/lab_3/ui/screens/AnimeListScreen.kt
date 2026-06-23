@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.lab_3.domain.models.Anime
+import com.example.lab_3.ui.states.AnimeListStatus
 import com.example.lab_3.ui.states.AnimeListUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,7 +30,11 @@ fun AnimeListScreen(
     onRetry: () -> Unit
 ) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Anime List") }) }
+        topBar = {
+            TopAppBar(
+                title = { Text("Anime List") }
+            )
+        }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -44,9 +49,11 @@ fun AnimeListScreen(
                 label = { Text("Search by title") },
                 singleLine = true
             )
+
             Spacer(modifier = Modifier.height(12.dp))
-            when {
-                uiState.isLoading -> {
+
+            when (val status = uiState.status) {
+                AnimeListStatus.Loading -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -54,7 +61,8 @@ fun AnimeListScreen(
                         CircularProgressIndicator()
                     }
                 }
-                uiState.errorMessage != null -> {
+
+                is AnimeListStatus.Error -> {
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -66,50 +74,53 @@ fun AnimeListScreen(
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.error
                         )
+
                         Spacer(modifier = Modifier.height(8.dp))
+
                         Text(
-                            text = "Error: ${uiState.errorMessage}",
+                            text = "Error: ${status.message}",
                             color = MaterialTheme.colorScheme.error
                         )
+
                         Spacer(modifier = Modifier.height(16.dp))
+
                         Button(onClick = onRetry) {
                             Text("Retry")
                         }
                     }
                 }
-                uiState.hasSearched && uiState.animeList.isEmpty() -> {
+
+                AnimeListStatus.Empty -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("No results found")
+                        Text(
+                            text = if (uiState.searchQuery.isNotBlank()) {
+                                "No results found"
+                            } else {
+                                "No favourites yet"
+                            }
+                        )
                     }
                 }
 
-                !uiState.hasSearched && uiState.favouriteList.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("No favourites yet")
-                    }
-                }
-
-                else -> {
-                    val list = if (uiState.hasSearched) {
-                        uiState.animeList
-                    } else {
-                        uiState.favouriteList
-                    }
-
+                AnimeListStatus.Success -> {
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(list, key = { it.id }) { anime ->
+                        items(
+                            items = uiState.animeList,
+                            key = { it.id }
+                        ) { anime ->
                             AnimeCard(
                                 anime = anime,
-                                onAnimeClick = { onAnimeClick(anime.id) },
-                                onFavouriteClick = { onFavouriteClick(anime) }
+                                onAnimeClick = {
+                                    onAnimeClick(anime.id)
+                                },
+                                onFavouriteClick = {
+                                    onFavouriteClick(anime)
+                                }
                             )
                         }
                     }
@@ -128,9 +139,13 @@ fun AnimeCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onAnimeClick() },
+            .clickable {
+                onAnimeClick()
+            },
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        )
     ) {
         Row(
             modifier = Modifier
@@ -174,7 +189,9 @@ fun AnimeCard(
                 }
             }
 
-            IconButton(onClick = onFavouriteClick) {
+            IconButton(
+                onClick = onFavouriteClick
+            ) {
                 Text(
                     text = if (anime.isFavourite) "★" else "☆",
                     fontSize = 24.sp
@@ -184,7 +201,10 @@ fun AnimeCard(
             AsyncImage(
                 model = anime.imageUrl,
                 contentDescription = anime.title,
-                modifier = Modifier.size(width = 70.dp, height = 100.dp),
+                modifier = Modifier.size(
+                    width = 70.dp,
+                    height = 100.dp
+                ),
                 contentScale = ContentScale.Crop
             )
         }

@@ -9,6 +9,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.example.lab_3.domain.models.Anime
 import com.example.lab_3.ui.screens.AnimeDetailScreen
 import com.example.lab_3.ui.screens.AnimeListScreen
 import com.example.lab_3.ui.viewmodels.AnimeDetailViewModel
@@ -18,14 +19,16 @@ object AnimeRoutes {
     const val LIST_ROUTE = "anime_list"
     const val DETAILS_ROUTE_PATTERN = "anime_detail/{animeId}"
     const val ANIME_ID_ARG = "animeId"
+
     fun details(animeId: Int): String = "anime_detail/$animeId"
 }
 
 @Composable
-fun NavGraph(){
+fun NavGraph() {
     val navController = rememberNavController()
 
     val animeListViewModel: AnimeListViewModel = hiltViewModel()
+
     NavHost(
         navController = navController,
         startDestination = AnimeRoutes.LIST_ROUTE
@@ -51,17 +54,46 @@ fun NavGraph(){
             )
         ) { backStackEntry ->
             val animeDetailViewModel: AnimeDetailViewModel = hiltViewModel()
-            val animeId = backStackEntry.arguments?.getInt(AnimeRoutes.ANIME_ID_ARG)
-                ?: return@composable
+
+            val animeId =
+                backStackEntry.arguments?.getInt(AnimeRoutes.ANIME_ID_ARG)
+                    ?: return@composable
 
             LaunchedEffect(animeId) {
                 animeDetailViewModel.load(animeId)
             }
 
+            val detailState = animeDetailViewModel.uiState
+            val animeDetail = detailState.animeDetail
+
+            val isFavourite = animeListViewModel.uiState.favouriteList.any {
+                it.id == animeId
+            }
+
             AnimeDetailScreen(
-                uiState = animeDetailViewModel.uiState,
-                onBack = { navController.popBackStack() },
-                onRetry = { animeDetailViewModel.load(animeId) }
+                uiState = detailState,
+                isFavourite = isFavourite,
+                onBack = {
+                    navController.popBackStack()
+                },
+                onRetry = {
+                    animeDetailViewModel.load(animeId)
+                },
+                onFavouriteClick = {
+                    animeDetail?.let { detail ->
+                        animeListViewModel.onFavouriteClick(
+                            Anime(
+                                id = detail.id,
+                                title = detail.title,
+                                imageUrl = detail.imageUrl,
+                                episodes = detail.episodes,
+                                rating = detail.rating,
+                                year = detail.year,
+                                isFavourite = isFavourite
+                            )
+                        )
+                    }
+                }
             )
         }
     }

@@ -50,6 +50,8 @@ class AnimeRepositoryImpl @Inject constructor(
                 }
                 val body = response.body() ?: throw Exception("Empty body")
                 return body.data.mapNotNull { it.toDomainOrNull() }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 if (attempt == 1) throw e
             }
@@ -73,6 +75,8 @@ class AnimeRepositoryImpl @Inject constructor(
                 }
                 val body = response.body() ?: throw Exception("Empty body")
                 return body.data.mapNotNull { it.toDomainOrNull() }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 if (attempt == 1) throw e
             }
@@ -86,13 +90,19 @@ class AnimeRepositoryImpl @Inject constructor(
                 val response = api.getAnimeDetail(id)
 
                 if (!response.isSuccessful) {
+                    if (response.code() == 429 && attempt == 0) {
+                        kotlinx.coroutines.delay(1000)
+                        return@repeat
+                    }
                     throw Exception("HTTP ${response.code()}")
                 }
+
                 return response.body()?.data?.toDomainOrNull()
                     ?: throw Exception("Empty body")
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 if (attempt == 1) throw e
-                kotlinx.coroutines.delay(800)
             }
         }
         error("unreachable")

@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.lab_3.data.repository.AnimeRepository
 import com.example.lab_3.domain.models.Anime
+import com.example.lab_3.ui.states.AnimeListStatus
 import com.example.lab_3.ui.states.AnimeListUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -18,7 +19,8 @@ import kotlin.coroutines.cancellation.CancellationException
 @HiltViewModel
 class AnimeListViewModel @Inject constructor(
     private val repository: AnimeRepository
-): ViewModel(){
+) : ViewModel() {
+
     var uiState by mutableStateOf(AnimeListUiState())
         private set
 
@@ -29,62 +31,89 @@ class AnimeListViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val favourites = repository.getFavourites()
-                val favouritesIds = favourites.map { it.id }.toSet()
+                val favouriteIds = favourites.map { it.id }.toSet()
 
                 uiState = uiState.copy(
                     favouriteList = favourites,
                     animeList = uiState.animeList.map { anime ->
-                        anime.copy(isFavourite = anime.id in favouritesIds)
-                    },
-                    errorMessage = null
+                        anime.copy(isFavourite = anime.id in favouriteIds)
+                    }
                 )
             } catch (e: CancellationException) {
                 throw e
-            }catch ( e: Exception){
-                uiState = uiState.copy(
-                    errorMessage = "Failed to load favorites"
-                )
+            } catch (_: Exception) {
+                // Ошибка Room не перекрывает сетевой экран.
             }
         }
     }
 
     init {
+        loadAnimeList()
         loadFavourites()
     }
+
     fun onSearchQueryChange(newValue: String) {
         searchJob?.cancel()
+
         uiState = uiState.copy(
-            searchQuery = newValue,
-            errorMessage = null
+            searchQuery = newValue
         )
+
         if (newValue.isBlank()) {
-            loadAnimeList()
+            val favourites = uiState.favouriteList
+
+            uiState = uiState.copy(
+                animeList = favourites,
+                status = if (favourites.isEmpty()) {
+                    AnimeListStatus.Empty
+                } else {
+                    AnimeListStatus.Success
+                }
+            )
             return
         }
 
         searchJob = viewModelScope.launch {
             try {
                 if (newValue == uiState.searchQuery) {
-                    uiState = uiState.copy(isLoading = true)
+                    uiState = uiState.copy(
+                        status = AnimeListStatus.Loading
+                    )
                 }
+
                 delay(500)
-                if (newValue != uiState.searchQuery) return@launch
+
+                if (newValue != uiState.searchQuery) {
+                    return@launch
+                }
 
                 val results = repository.searchAnime(newValue)
-                val favourites = repository.getFavourites()
+
+                val favourites = try {
+                    repository.getFavourites()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    uiState.favouriteList
+                }
+
                 val favouriteIds = favourites.map { it.id }.toSet()
 
                 val resultsWithFavourites = results.map { anime ->
-                    anime.copy(isFavourite = anime.id in favouriteIds)
-                }
+                    anime.copy(
+                        isFavourite = anime.id in favouriteIds
+                    )
+                }.distinctBy { it.id }
 
                 if (newValue == uiState.searchQuery) {
                     uiState = uiState.copy(
-                        animeList = resultsWithFavourites.distinctBy { it.id },
-                        isLoading = false,
-                        hasSearched = true,
-                        errorMessage = null,
-                        isEmpty = results.isEmpty()
+                        animeList = resultsWithFavourites,
+                        favouriteList = favourites,
+                        status = if (resultsWithFavourites.isEmpty()) {
+                            AnimeListStatus.Empty
+                        } else {
+                            AnimeListStatus.Success
+                        }
                     )
                 }
             } catch (e: CancellationException) {
@@ -92,9 +121,9 @@ class AnimeListViewModel @Inject constructor(
             } catch (e: Exception) {
                 if (newValue == uiState.searchQuery) {
                     uiState = uiState.copy(
-                        isLoading = false,
-                        errorMessage = e.message ?: "Search error",
-                        hasSearched = true
+                        status = AnimeListStatus.Error(
+                            e.message ?: "Search error"
+                        )
                     )
                 }
             }
@@ -104,19 +133,30 @@ class AnimeListViewModel @Inject constructor(
     fun onFavouriteClick(anime: Anime) {
         viewModelScope.launch {
             try {
-                repository.setFavourite(anime, !anime.isFavourite)
+                repository.setFavourite(
+                    anime,
+                    !anime.isFavourite
+                )
+
                 val updatedAnimeList = uiState.animeList.map { current ->
                     if (current.id == anime.id) {
-                        current.copy(isFavourite = !anime.isFavourite)
+                        current.copy(
+                            isFavourite = !anime.isFavourite
+                        )
                     } else {
                         current
                     }
                 }
 
                 val updatedFavouriteList = if (anime.isFavourite) {
-                    uiState.favouriteList.filter { it.id != anime.id }
+                    uiState.favouriteList.filter {
+                        it.id != anime.id
+                    }
                 } else {
-                    uiState.favouriteList + anime.copy(isFavourite = true)
+                    (
+                            uiState.favouriteList +
+                                    anime.copy(isFavourite = true)
+                            ).distinctBy { it.id }
                 }
 
                 uiState = uiState.copy(
@@ -124,47 +164,64 @@ class AnimeListViewModel @Inject constructor(
                     favouriteList = updatedFavouriteList
                 )
             } catch (e: Exception) {
-                uiState = uiState.copy(errorMessage = "Failed to save favorite")
+                uiState = uiState.copy(
+                    status = AnimeListStatus.Error(
+                        "Failed to save favorite"
+                    )
+                )
             }
         }
     }
+
     fun loadAnimeList() {
         loadJob?.cancel()
+
         loadJob = viewModelScope.launch {
             uiState = uiState.copy(
-                isLoading = true,
-                errorMessage = null,
                 animeList = emptyList(),
-                hasSearched = true,
-                isEmpty = false
+                status = AnimeListStatus.Loading
             )
+
             try {
                 val list = repository.getAnimeList(page = 1)
-                val favourites = repository.getFavourites()
-                val favouriteIds = favourites.map { it.id }.toSet()
 
-                val listWithFavourites = list.map { anime ->
-                    anime.copy(isFavourite = anime.id in favouriteIds)
+                val favourites = try {
+                    repository.getFavourites()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    uiState.favouriteList
                 }
 
-                val uniqueList = listWithFavourites.distinctBy { it.id }
+                val favouriteIds = favourites.map { it.id }.toSet()
+
+                val uniqueList = list.map { anime ->
+                    anime.copy(
+                        isFavourite = anime.id in favouriteIds
+                    )
+                }.distinctBy { it.id }
 
                 uiState = uiState.copy(
                     animeList = uniqueList,
-                    isLoading = false,
-                    hasSearched = true,
-                    isEmpty = uniqueList.isEmpty()
+                    favouriteList = favourites,
+                    status = if (uniqueList.isEmpty()) {
+                        AnimeListStatus.Empty
+                    } else {
+                        AnimeListStatus.Success
+                    }
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 uiState = uiState.copy(
-                    isLoading = false,
-                    errorMessage = e.message ?: "Download error",
-                    hasSearched = true,
-                    isEmpty = false
+                    status = AnimeListStatus.Error(
+                        e.message ?: "Download error"
+                    )
                 )
             }
         }
     }
+
     fun onRetry() {
         if (uiState.searchQuery.isBlank()) {
             loadAnimeList()

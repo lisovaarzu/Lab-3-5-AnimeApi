@@ -4,25 +4,29 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import com.example.lab_3.ui.states.AnimeDetailUiState
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnimeDetailScreen(
     uiState: AnimeDetailUiState,
+    isFavourite: Boolean,
     onBack: () -> Unit,
-    onRetry: () -> Unit
+    onRetry: () -> Unit,
+    onFavouriteClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -30,7 +34,28 @@ fun AnimeDetailScreen(
                 title = { Text("Anime Details") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                },
+                actions = {
+                    if (uiState.animeDetail != null) {
+                        IconButton(onClick = onFavouriteClick) {
+                            Icon(
+                                imageVector = if (isFavourite) {
+                                    Icons.Filled.Favorite
+                                } else {
+                                    Icons.Outlined.FavoriteBorder
+                                },
+                                contentDescription = if (isFavourite) {
+                                    "Remove from favourites"
+                                } else {
+                                    "Add to favourites"
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -50,6 +75,7 @@ fun AnimeDetailScreen(
                         CircularProgressIndicator()
                     }
                 }
+
                 uiState.errorMessage != null -> {
                     Column(
                         modifier = Modifier
@@ -64,17 +90,22 @@ fun AnimeDetailScreen(
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.error
                         )
+
                         Spacer(modifier = Modifier.height(16.dp))
+
                         Text(
                             text = "Error: ${uiState.errorMessage}",
                             color = MaterialTheme.colorScheme.error
                         )
+
                         Spacer(modifier = Modifier.height(16.dp))
+
                         Button(onClick = onRetry) {
                             Text("Retry")
                         }
                     }
                 }
+
                 uiState.animeDetail != null -> {
                     val anime = uiState.animeDetail
 
@@ -102,7 +133,9 @@ fun AnimeDetailScreen(
                                         androidx.compose.ui.graphics.Brush.verticalGradient(
                                             colors = listOf(
                                                 androidx.compose.ui.graphics.Color.Transparent,
-                                                androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.6f)
+                                                androidx.compose.ui.graphics.Color.Black.copy(
+                                                    alpha = 0.6f
+                                                )
                                             )
                                         )
                                     )
@@ -126,7 +159,7 @@ fun AnimeDetailScreen(
                                 )
                             }
 
-                            anime.rating?.let{ rating ->
+                            anime.rating?.let { rating ->
                                 Text(
                                     text = "Rating: ${String.format("%.1f", rating)}",
                                     style = MaterialTheme.typography.bodyMedium
@@ -158,16 +191,40 @@ fun AnimeDetailScreen(
 
                             if (!anime.synopsis.isNullOrBlank()) {
                                 Spacer(modifier = Modifier.height(16.dp))
+
                                 Text(
                                     text = "Synopsis",
                                     style = MaterialTheme.typography.titleLarge
                                 )
+
                                 Spacer(modifier = Modifier.height(8.dp))
+
                                 Text(
                                     text = anime.synopsis,
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }
+                        }
+                    }
+                }
+
+                else -> {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "Anime details are unavailable",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Button(onClick = onRetry) {
+                            Text("Retry")
                         }
                     }
                 }

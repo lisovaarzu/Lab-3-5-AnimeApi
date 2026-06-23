@@ -4,7 +4,7 @@ data class AnimeDetail(
     val id: Int,
     val title: String,
     val titleEnglish: String? = null,
-    val imageUrl: String = "",
+    val imageUrl: String? = null,
     val synopsis: String? = null,
     val episodes: Int?,
     val status: String,
