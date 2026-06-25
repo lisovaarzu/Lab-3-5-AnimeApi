@@ -30,7 +30,7 @@ data class AnimeDetailDto(
             imageUrl =
                 images?.jpg?.large_image_url
                     ?: images?.jpg?.image_url
-                    ?: images?.webp?.image_url
+                    ?: images?.webp?.image_url,
 
             synopsis = synopsis,
             episodes = episodes,
