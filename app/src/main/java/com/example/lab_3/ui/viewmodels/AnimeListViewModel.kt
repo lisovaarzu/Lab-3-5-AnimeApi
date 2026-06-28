@@ -42,7 +42,6 @@ class AnimeListViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                // Ошибка Room не перекрывает сетевой экран.
             }
         }
     }
@@ -60,16 +59,7 @@ class AnimeListViewModel @Inject constructor(
         )
 
         if (newValue.isBlank()) {
-            val favourites = uiState.favouriteList
-
-            uiState = uiState.copy(
-                animeList = favourites,
-                status = if (favourites.isEmpty()) {
-                    AnimeListStatus.Empty
-                } else {
-                    AnimeListStatus.Success
-                }
-            )
+            loadAnimeList()
             return
         }
 
@@ -163,6 +153,8 @@ class AnimeListViewModel @Inject constructor(
                     animeList = updatedAnimeList,
                     favouriteList = updatedFavouriteList
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 uiState = uiState.copy(
                     status = AnimeListStatus.Error(

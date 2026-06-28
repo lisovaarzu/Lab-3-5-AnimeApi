@@ -6,9 +6,9 @@ import com.example.lab_3.data.local.toFavouriteEntity
 import com.example.lab_3.data.network.JikanApi
 import com.example.lab_3.domain.models.Anime
 import com.example.lab_3.domain.models.AnimeDetail
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.Dispatcher
+import com.example.lab_3.data.network.IoDispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import javax.inject.Inject
 
 interface AnimeRepository {
@@ -21,14 +21,15 @@ interface AnimeRepository {
 
 class AnimeRepositoryImpl @Inject constructor(
     private val api: JikanApi,
-    private val animeDao: AnimeDao
+    private val animeDao: AnimeDao,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : AnimeRepository {
 
-    override suspend fun getFavourites(): List<Anime> = withContext(Dispatchers.IO){
+    override suspend fun getFavourites(): List<Anime> = withContext(ioDispatcher){
         animeDao.getFavourites().map {it.toDomain()}
     }
 
-    override suspend fun setFavourite(anime: Anime, isFavourite: Boolean) = withContext(Dispatchers.IO) {
+    override suspend fun setFavourite(anime: Anime, isFavourite: Boolean) = withContext(ioDispatcher) {
         if (isFavourite){
             animeDao.upsert(anime.toFavouriteEntity())
         } else {

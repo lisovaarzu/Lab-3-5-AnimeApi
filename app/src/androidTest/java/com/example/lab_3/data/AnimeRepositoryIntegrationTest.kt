@@ -11,9 +11,11 @@ import com.example.lab_3.data.repository.AnimeRepositoryImpl
 import com.example.lab_3.domain.models.Anime
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.StandardTestDispatcher
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -28,6 +30,7 @@ class AnimeRepositoryIntegrationTest {
     private lateinit var dao: AnimeDao
     private lateinit var repository: AnimeRepositoryImpl
     private lateinit var mockApi: JikanApi
+    private val testDispatcher = StandardTestDispatcher()
 
     @Before
     fun setup() {
@@ -37,7 +40,7 @@ class AnimeRepositoryIntegrationTest {
         ).allowMainThreadQueries().build()
         dao = database.AnimeDao()
         mockApi = mockk(relaxed = true)
-        repository = AnimeRepositoryImpl(api = mockApi, animeDao = dao)
+        repository = AnimeRepositoryImpl(api = mockApi, animeDao = dao, ioDispatcher = testDispatcher)
     }
 
     @After
@@ -45,7 +48,7 @@ class AnimeRepositoryIntegrationTest {
         database.close()
     }
     @Test
-    fun setFavourite_savesToRoom() = runTest {
+    fun setFavourite_savesToRoom() = runTest(testDispatcher) {
         val anime = Anime(1, "Test Anime", "url", 12, 8.5, 2024, false)
 
         repository.setFavourite(anime, isFavourite = true)
@@ -56,7 +59,7 @@ class AnimeRepositoryIntegrationTest {
     }
 
     @Test
-    fun addFavouriteTwice_noDuplicate() = runTest {
+    fun addFavouriteTwice_noDuplicate() = runTest(testDispatcher) {
         val anime = Anime(1, "Test Anime", "url", 12, 8.5, 2024, false)
 
         repository.setFavourite(anime, isFavourite = true)
@@ -67,7 +70,7 @@ class AnimeRepositoryIntegrationTest {
     }
 
     @Test
-    fun removeFavourite_deletesFromRoom() = runTest {
+    fun removeFavourite_deletesFromRoom() = runTest(testDispatcher) {
         val anime = Anime(1, "Test Anime", "url", 12, 8.5, 2024, false)
 
         repository.setFavourite(anime, isFavourite = true)
@@ -78,7 +81,7 @@ class AnimeRepositoryIntegrationTest {
     }
 
     @Test
-    fun getAnimeList_success_returnsData() = runTest {
+    fun getAnimeList_success_returnsData() = runTest(testDispatcher) {
         val animeDto = com.example.lab_3.data.models.AnimeDto(
             mal_id = 1,
             title = "Test Anime",
@@ -110,7 +113,7 @@ class AnimeRepositoryIntegrationTest {
     }
 
     @Test
-    fun getAnimeList_httpError_throwsException() = runTest {
+    fun getAnimeList_httpError_throwsException() = runTest(testDispatcher) {
         val response = Response.error<com.example.lab_3.data.models.AnimeResponse>(500, okhttp3.ResponseBody.create(null, "Error"))
         coEvery { mockApi.getAnimeList(page = 1, limit = 10) } returns response
 
@@ -125,7 +128,7 @@ class AnimeRepositoryIntegrationTest {
     }
 
     @Test
-    fun searchAnime_success_returnsData() = runTest {
+    fun searchAnime_success_returnsData() = runTest(testDispatcher) {
         val animeDto = com.example.lab_3.data.models.AnimeDto(
             mal_id = 2,
             title = "Naruto",
@@ -155,15 +158,18 @@ class AnimeRepositoryIntegrationTest {
     }
 
     @Test
-    fun searchAnime_emptyQuery_returnsEmptyList() = runTest {
+    fun searchAnime_emptyQuery_returnsEmptyList() = runTest(testDispatcher) {
         val result = repository.searchAnime(query = "", page = 1)
 
         assertThat(result).isEmpty()
-        coEvery { mockApi.searchAnime(any(), any(), any()) } returns mockk(relaxed = true)
+
+        coVerify(exactly = 0) {
+            mockApi.searchAnime(any(), any(), any())
+        }
     }
 
     @Test
-    fun searchAnime_httpError_throwsException() = runTest {
+    fun searchAnime_httpError_throwsException() = runTest(testDispatcher) {
         val response = Response.error<com.example.lab_3.data.models.AnimeResponse>(404, okhttp3.ResponseBody.create(null, "Not Found"))
         coEvery { mockApi.searchAnime(query = "NotFound", page = 1, limit = 10) } returns response
 

@@ -6,15 +6,24 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
-import  retrofit2.Retrofit
+import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import javax.inject.Qualifier
 import javax.inject.Singleton
 
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class IoDispatcher
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
     private const val BASE_URL = "https://api.jikan.moe/v4/"
 
+    @Provides
+    @IoDispatcher
+    fun providesIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
     @Provides
     @Singleton
     fun loggingInterceptor(): HttpLoggingInterceptor =
